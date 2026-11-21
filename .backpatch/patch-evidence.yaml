@@ -1,0 +1,37 @@
+schema: osera-patch-evidence/0.1.0
+producer: moderne
+release: 4.3.1-backpatch-00001
+baseline: v4.3.0+backpatch.baseline
+fixes:
+  - cve: CVE-2026-114141
+    upstream_fix_url: https://github.com/BinaryMuse/toml-node/commit/609c873fffea0a27ebe5b4dd098eed2b3daf3606
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-114141
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-toml-node/compare/81da4ec~1...0a51dd9
+    basis: adapted
+    artifacts:
+      - toml
+    note: "New in this release; upstream's fix in 5.0.1 (609c873, df2bd01), adapted to 4.3.0. It closes the advisory: toml-node: Quadratic-complexity DoS via many array-of-tables headers in toml.parse()."
+  - cve: CVE-2026-114142
+    upstream_fix_url: https://github.com/BinaryMuse/toml-node/commit/609c873fffea0a27ebe5b4dd098eed2b3daf3606
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-114142
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-toml-node/compare/81da4ec~1...0a51dd9
+    basis: adapted
+    artifacts:
+      - toml
+    note: "New in this release; upstream's fix in 5.0.1 (609c873, df2bd01), adapted to 4.3.0. It closes the advisory: toml-node: Prototype pollution: parsing a TOML document can write to Object.prototype."
+  - cve: CVE-2026-114143
+    upstream_fix_url: https://github.com/BinaryMuse/toml-node/commit/609c873fffea0a27ebe5b4dd098eed2b3daf3606
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-114143
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-toml-node/compare/81da4ec~1...0a51dd9
+    basis: adapted
+    artifacts:
+      - toml
+    note: "New in this release; upstream's fix in 5.0.1 (609c873, df2bd01), adapted to 4.3.0. It closes the advisory: toml-node: Quadratic-complexity DoS via long dotted keys or table paths in toml.parse()."
+tests:
+  commit: 0a51dd9ffd8be7dc48aa264173755d1ae5c9bffa
+  command: npm pack --ignore-scripts, then node --test test/test_toml.js in the tested tree, one JUnit test per command from its exit status
+  runtime: Node.js v22.16.0, macOS 27.2 arm64
+  report: toml-4.3.1-backpatch-00001-tests.zip
+  report_sha256: 712b7b6b42f4d8dd12cf108ca1583ee75d54328f176870dc866b28407f0bce76
+  result: pass
+  note: "upstream's node --test suite upstream's tests on the tested tree with the packed files laid over at the tested commit: 1 tests, 1 passed, 0 failed, 0 skipped. The CVE tests (test/test_toml.js), with this release's production lines reverted at the tested commit: 1 tests, 0 passed, 1 failed, 0 skipped; with them: 1 tests, 1 passed, 0 failed, 0 skipped. Built with no build step (lib/parser.js is tracked), npm pack --ignore-scripts in a directory named toml, 5 of npmjs's 7 files for 4.3.0 are identical; the rest are lib/compiler.js, package.json. The archive's file-origins.yaml maps each packaged file to the commit, or names its inputs and build."

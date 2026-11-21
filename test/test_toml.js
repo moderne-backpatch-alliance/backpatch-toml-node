@@ -627,6 +627,74 @@ describe("nesting depth limit (GHSA-82x6-q7mm-w9cf)", function () {
   });
 });
 
+describe("key path identity", function () {
+  // `"a.b"` and `'"a'.'b"'` are different key paths that render to the same
+  // string; bookkeeping must not conflate them.
+  it("keeps keys distinct when their rendered paths collide", function () {
+    parsesToml("\"a.b\" = 1\n'\"a'.'b\"' = 2", { "a.b": 1, '"a': { 'b"': 2 } });
+  });
+
+  it("does not let a quoted key block a header that merely renders alike", function () {
+    parsesToml("'\"a'.'b\"' = 1\n[\"a.b\"]\nc = 2", {
+      '"a': { 'b"': 1 },
+      "a.b": { c: 2 },
+    });
+  });
+
+  it("does not let an array-of-tables header unlock a value that renders alike", function () {
+    assert.throws(function () {
+      toml.parse("\"b.c\" = 1\n[['\"b']]\n[\"b.c\"]");
+    }, /Cannot redefine/);
+  });
+});
+
+describe("resource exhaustion", function () {
+  // Each of these inputs is linear work for the parser and compiler; the
+  // limit is generous so slow CI machines pass while the quadratic
+  // behaviour these guard against (tens of seconds) still fails.
+  var LIMIT_MS = 2000;
+  var SEGMENTS = 50000;
+  var longKey = "a.".repeat(SEGMENTS) + "z";
+
+  function assertFast(label, fn) {
+    var start = process.hrtime.bigint();
+    fn();
+    var ms = Number(process.hrtime.bigint() - start) / 1e6;
+    assert.ok(ms < LIMIT_MS, label + " took " + Math.round(ms) + "ms (limit " + LIMIT_MS + "ms)");
+  }
+
+  it("parses very long dotted keys in linear time (GHSA-9j65-hcg3-gc64)", function () {
+    assertFast("dotted key", function () {
+      toml.parse(longKey + " = 1");
+    });
+    assertFast("table header", function () {
+      toml.parse("[" + longKey + "]\nx = 1");
+    });
+    assertFast("array-of-tables header", function () {
+      toml.parse("[[" + longKey + "]]\nx = 1");
+    });
+    assertFast("inline table key", function () {
+      toml.parse("t = { " + longKey + " = 1 }");
+    });
+  });
+
+  it("reports errors on very long dotted keys in linear time", function () {
+    assertFast("redefinition", function () {
+      assert.throws(function () {
+        toml.parse(longKey + " = 1\n" + longKey + " = 2");
+      }, /Cannot redefine/);
+    });
+  });
+
+  it("parses many array-of-tables headers in linear time (GHSA-4qx8-w7c3-pj3p)", function () {
+    var doc = "";
+    for (var i = 0; i < 30000; i++) doc += "[[t" + i + "]]\nv = 1\n";
+    assertFast("array-of-tables headers", function () {
+      toml.parse(doc);
+    });
+  });
+});
+
 describe("prototype pollution hardening", function () {
   it("rejects table paths that descend through scalar values", function () {
     rejectsWithoutObjectPrototypeMutation(
@@ -646,6 +714,23 @@ describe("prototype pollution hardening", function () {
     rejectsWithoutObjectPrototypeMutation(
       "[a.b]\ny = 1\n[a.b.y.__proto__.__proto__.code]\nval = \"arbitrary\"",
       "code"
+    );
+  });
+
+  it("rejects dotted keys that descend through a date value", function () {
+    rejectsWithoutObjectPrototypeMutation(
+      "a = 1979-05-27T07:32:00Z\na.__proto__.__proto__.polluted = \"yes\"",
+      "polluted"
+    );
+  });
+
+  it("rejects descent into a date reached via colliding path strings (GHSA-h895-cgqg-jf52)", function () {
+    rejectsWithoutObjectPrototypeMutation(
+      "\"b.c\" = 1979-05-27T07:32:00Z\n" +
+      "[['\"b']]\n" +
+      "[\"b.c\"]\n" +
+      "__proto__.__proto__.polluted = \"yes\"",
+      "polluted"
     );
   });
 
